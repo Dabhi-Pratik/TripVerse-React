@@ -24,6 +24,19 @@ const BookingForm = () => {
   const navigate = useNavigate();
   const { user, loading } = useContext(authContext);
 
+  const isPreview =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("preview") === "true";
+  const currentUser =
+    user ||
+    (isPreview
+      ? {
+          displayName: "Alexander Wright",
+          email: "alexander.wright@example.com",
+          uid: "demo-traveler",
+        }
+      : null);
+
   const selectedTrip = trips.find((t) => t.id === Number(id));
 
   const [formData, setFormData] = useState({
@@ -41,14 +54,17 @@ const BookingForm = () => {
 
   // Fill in the logged-in user's details
   useEffect(() => {
-    if (user) {
+    if (currentUser) {
       setFormData((prev) => ({
         ...prev,
-        name: user.displayName || "",
-        email: user.email || "",
+        name: prev.name || currentUser.displayName || "",
+        email: prev.email || currentUser.email || "",
+        phone: prev.phone || (isPreview ? "9876543210" : ""),
+        date: prev.date || (isPreview ? "2026-11-20" : ""),
+        person: prev.person || 2,
       }));
     }
-  }, [user]);
+  }, [currentUser, isPreview]);
 
   // Calculate the total booking price
   useEffect(() => {
@@ -67,6 +83,16 @@ const BookingForm = () => {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const handlePersonChange = (increment) => {
+    setFormData((prev) => {
+      const nextPerson = Math.max(1, Number(prev.person || 1) + increment);
+      return {
+        ...prev,
+        person: nextPerson,
+      };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -135,12 +161,13 @@ const BookingForm = () => {
         tripId: selectedTrip.id,
         tripName: selectedTrip.name,
         tripPrice: selectedTrip.price,
+        tripImage: selectedTrip.image,
+        destination: selectedTrip.destination || "",
         createdAt: serverTimestamp(),
       });
 
-      alert("Trip booked successfully!");
-
-      navigate("/");
+      alert("🎉 Trip booked successfully! Redirecting to your bookings...");
+      navigate("/myBookings");
     } catch (err) {
       console.error("Booking error:", err);
       setError(
@@ -154,9 +181,9 @@ const BookingForm = () => {
   // Wait for Firebase authentication to resolve
   if (loading) {
     return (
-      <Container className="text-center mt-5">
-        <Spinner animation="border" />
-        <p className="mt-3">Checking authentication...</p>
+      <Container className="text-center py-5">
+        <Spinner animation="border" variant="primary" />
+        <p className="mt-3 text-secondary">Checking authentication...</p>
       </Container>
     );
   }
@@ -164,203 +191,396 @@ const BookingForm = () => {
   // Handle an invalid trip ID
   if (!selectedTrip) {
     return (
-      <Container className="text-center mt-5">
-        <Alert variant="warning">Trip not found.</Alert>
-        <Button onClick={() => navigate("/trips")}>Back to Trips</Button>
-      </Container>
+      <div className="tv-booking-page">
+        <Container className="text-center py-5">
+          <div className="tv-empty-state">
+            <div className="tv-empty-state-icon">🗺️</div>
+            <h4>Trip not found</h4>
+            <p>The trip you are attempting to book could not be found.</p>
+            <Button
+              className="tv-btn-primary"
+              style={{ width: "auto" }}
+              onClick={() => navigate("/trips")}
+            >
+              ← Back to All Trips
+            </Button>
+          </div>
+        </Container>
+      </div>
     );
   }
 
   // Require login before booking
-  if (!user) {
+  if (!currentUser) {
     return (
-      <Container className="text-center mt-5">
-        <h3>Please log in to book this trip.</h3>
-        <Button className="mt-3" onClick={() => navigate("/auth")}>
-          Login
-        </Button>
-      </Container>
+      <div className="tv-booking-page">
+        <Container className="text-center py-5">
+          <div className="tv-form-card p-5 mx-auto" style={{ maxWidth: "540px" }}>
+            <div style={{ fontSize: "3.5rem" }} className="mb-3">🔐</div>
+            <h3 className="mb-2">Login Required</h3>
+            <p className="text-secondary mb-4">
+              Please sign in to your TripVerse account to complete your reservation.
+            </p>
+            <Button
+              className="tv-btn-primary"
+              style={{ width: "auto", padding: "0.75rem 2.5rem" }}
+              onClick={() => navigate("/auth")}
+            >
+              Sign In / Register →
+            </Button>
+          </div>
+        </Container>
+      </div>
     );
   }
 
   return (
-    <Container className="pb-5">
-      <Row className="g-4">
-        {/* Selected trip details */}
-        <Col md={5} className="mt-5">
-          <Card className="shadow rounded-4 overflow-hidden">
-            <Card.Img
-              variant="top"
-              src={selectedTrip.image}
-              alt={selectedTrip.name}
-              className="img-fluid"
-              style={{
-                height: "300px",
-                objectFit: "cover",
-              }}
-            />
+    <div className="tv-booking-page">
+      <Container>
+        {/* Navigation Breadcrumb / Back button */}
+        <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+          <Button
+            variant="link"
+            className="text-decoration-none p-0 d-inline-flex align-items-center text-secondary fw-semibold"
+            onClick={() => navigate(`/trips/${selectedTrip.id}`)}
+          >
+            ← Back to Trip Details
+          </Button>
 
-            <Card.Body className="d-flex flex-column align-items-center">
-              <Card.Title className="fs-3 text-center">
-                {selectedTrip.name}
-              </Card.Title>
+          <span
+            style={{
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "var(--tv-success)",
+              background: "rgba(16,185,129,0.12)",
+              padding: "0.35rem 0.9rem",
+              borderRadius: "var(--tv-radius-full)",
+            }}
+          >
+            🔒 Guaranteed Best Rates
+          </span>
+        </div>
 
-              <Card.Text>{selectedTrip.destination}</Card.Text>
-              <Card.Text>{selectedTrip.duration}</Card.Text>
-
-              <Badge bg="success" className="p-2">
-                <h4 className="mb-0">₹ {selectedTrip.price} / person</h4>
-              </Badge>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        {/* Booking form */}
-        <Col md={7} className="mt-5">
-          <Card className="shadow rounded-4">
-            <Card.Body className="p-4">
-              <h3 className="mb-4">Book Your Trip</h3>
-
-              {error && (
-                <Alert
-                  variant="danger"
-                  dismissible
-                  onClose={() => setError("")}
+        <Row className="g-4">
+          {/* Left: Sticky Trip Summary Card */}
+          <Col lg={5}>
+            <div className="tv-booking-trip-card bg-white">
+              <div style={{ position: "relative", height: "260px", overflow: "hidden" }}>
+                <img
+                  src={selectedTrip.image}
+                  alt={selectedTrip.name}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    transition: "transform 0.4s ease",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background:
+                      "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "1rem",
+                    left: "1.2rem",
+                    right: "1.2rem",
+                    color: "#fff",
+                  }}
                 >
-                  {error}
-                </Alert>
-              )}
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      background: "rgba(255,255,255,0.25)",
+                      backdropFilter: "blur(6px)",
+                      padding: "0.25rem 0.65rem",
+                      borderRadius: "var(--tv-radius-full)",
+                      display: "inline-block",
+                      marginBottom: "0.4rem",
+                    }}
+                  >
+                    📍 {selectedTrip.destination}
+                  </span>
+                  <h4 className="fw-bold mb-0 text-white" style={{ fontFamily: "Playfair Display, serif" }}>
+                    {selectedTrip.name}
+                  </h4>
+                </div>
+              </div>
 
-              <Form onSubmit={handleSubmit}>
-                <Row>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Traveler Name</Form.Label>
-                      <Form.Control
-                        type="text"
-                        placeholder="Enter your name"
-                        value={formData.name}
-                        onChange={(e) => handleChange("name", e)}
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
+              <div className="p-4">
+                <div className="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                  <div>
+                    <span className="text-muted d-block small">Duration</span>
+                    <strong>🕐 {selectedTrip.duration}</strong>
+                  </div>
+                  {selectedTrip.rating && (
+                    <div className="text-end">
+                      <span className="text-muted d-block small">Rating</span>
+                      <strong>⭐ {selectedTrip.rating} / 5.0</strong>
+                    </div>
+                  )}
+                </div>
 
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Email Address</Form.Label>
-                      <Form.Control
-                        type="email"
-                        placeholder="Enter your email"
-                        value={formData.email}
-                        onChange={(e) => handleChange("email", e)}
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
-                </Row>
+                {/* Price Display */}
+                <div className="mb-4">
+                  <span className="text-muted small d-block mb-1">Standard Rate</span>
+                  <div className="d-flex align-items-baseline gap-2">
+                    <span className="tv-price-badge">
+                      ₹{Number(selectedTrip.price).toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-muted small">/ per traveler</span>
+                  </div>
+                </div>
 
-                <Row>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Phone Number</Form.Label>
-                      <Form.Control
-                        type="tel"
-                        placeholder="10-digit phone number"
-                        value={formData.phone}
-                        onChange={(e) => handleChange("phone", e)}
-                        pattern="[0-9]{10}"
-                        maxLength={10}
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
+                {/* Inclusions summary */}
+                <div
+                  className="p-3 rounded-3 mb-4"
+                  style={{ background: "rgba(10,111,216,0.04)", border: "1px solid rgba(10,111,216,0.1)" }}
+                >
+                  <div className="fw-bold small text-uppercase text-primary mb-2" style={{ letterSpacing: "0.05em" }}>
+                    ✨ What's Included
+                  </div>
+                  <div className="small text-secondary d-flex flex-column gap-1">
+                    <div>✓ 4★ & 5★ Handpicked Accommodations</div>
+                    <div>✓ Daily Breakfast & Welcome Dinner</div>
+                    <div>✓ Certified Professional Tour Guide</div>
+                    <div>✓ Sightseeing Transfers & Entrance Passes</div>
+                  </div>
+                </div>
 
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Travel Date</Form.Label>
-                      <Form.Control
-                        type="date"
-                        min={new Date().toLocaleDateString("en-CA")}
-                        value={formData.date}
-                        onChange={(e) => handleChange("date", e)}
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
-                </Row>
+                {/* Real-time price breakdown */}
+                <div className="tv-total-display">
+                  <div className="small text-uppercase fw-semibold text-secondary mb-1" style={{ fontSize: "0.75rem" }}>
+                    Total Estimated Payable
+                  </div>
+                  <div className="text-primary fw-bold" style={{ fontSize: "1.85rem" }}>
+                    ₹{Number(formData.total || 0).toLocaleString("en-IN")}
+                  </div>
+                  <div className="small text-muted fw-normal" style={{ fontSize: "0.8rem" }}>
+                    ({formData.person} {formData.person === 1 ? "Traveler" : "Travelers"} × ₹{Number(selectedTrip.price).toLocaleString("en-IN")})
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Col>
 
-                <Row>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Number of Travelers</Form.Label>
-                      <Form.Control
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={formData.person}
-                        onChange={(e) => handleChange("person", e)}
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
+          {/* Right: Booking Form */}
+          <Col lg={7}>
+            <div className="tv-form-card">
+              <div className="tv-form-card-body">
+                <div className="mb-4 pb-2 border-bottom">
+                  <h2 className="tv-booking-page-title">Confirm Your Trip</h2>
+                  <p className="text-secondary small mb-0">
+                    Fill in your travel group details to reserve your place. No instant charges.
+                  </p>
+                </div>
 
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Grand Total (₹)</Form.Label>
-                      <Form.Control
-                        type="number"
-                        value={formData.total}
-                        readOnly
-                      />
-                    </Form.Group>
-                  </Col>
+                {error && (
+                  <Alert
+                    variant="danger"
+                    dismissible
+                    onClose={() => setError("")}
+                    className="border-0 shadow-sm"
+                  >
+                    ⚠️ {error}
+                  </Alert>
+                )}
 
-                  <Col md={12}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Special Request (Optional)</Form.Label>
+                <Form onSubmit={handleSubmit}>
+                  {/* Step 1: Personal Details */}
+                  <div className="mb-4">
+                    <div
+                      className="text-uppercase small fw-bold text-primary mb-3"
+                      style={{ letterSpacing: "0.06em" }}
+                    >
+                      👤 Primary Traveler Details
+                    </div>
+
+                    <Row className="g-3">
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="tv-form-label">Full Name *</Form.Label>
+                          <Form.Control
+                            type="text"
+                            placeholder="e.g. John Doe"
+                            className="tv-form-control"
+                            value={formData.name}
+                            onChange={(e) => handleChange("name", e)}
+                            required
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="tv-form-label">Email Address *</Form.Label>
+                          <Form.Control
+                            type="email"
+                            placeholder="e.g. john@example.com"
+                            className="tv-form-control"
+                            value={formData.email}
+                            onChange={(e) => handleChange("email", e)}
+                            required
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="tv-form-label">Phone Number *</Form.Label>
+                          <Form.Control
+                            type="tel"
+                            placeholder="10-digit mobile number"
+                            className="tv-form-control"
+                            value={formData.phone}
+                            onChange={(e) => handleChange("phone", e)}
+                            pattern="[0-9]{10}"
+                            maxLength={10}
+                            required
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="tv-form-label">Departure Date *</Form.Label>
+                          <Form.Control
+                            type="date"
+                            min={new Date().toLocaleDateString("en-CA")}
+                            className="tv-form-control"
+                            value={formData.date}
+                            onChange={(e) => handleChange("date", e)}
+                            required
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                  </div>
+
+                  {/* Step 2: Traveler Count */}
+                  <div className="mb-4">
+                    <div
+                      className="text-uppercase small fw-bold text-primary mb-3"
+                      style={{ letterSpacing: "0.06em" }}
+                    >
+                      👥 Group Size
+                    </div>
+
+                    <div className="d-flex align-items-center gap-3 p-3 rounded-3" style={{ background: "#f8fafd", border: "1.5px solid rgba(0,0,0,0.06)" }}>
+                      <div className="flex-grow-1">
+                        <div className="fw-semibold">Number of Travelers</div>
+                        <div className="small text-muted">All ages welcome (includes guide and accommodation)</div>
+                      </div>
+
+                      <div className="d-flex align-items-center gap-2">
+                        <Button
+                          variant="outline-secondary"
+                          size="sm"
+                          style={{ width: "38px", height: "38px", borderRadius: "50%", padding: 0 }}
+                          onClick={() => handlePersonChange(-1)}
+                          disabled={formData.person <= 1}
+                        >
+                          -
+                        </Button>
+                        <span className="fw-bold fs-5 px-2" style={{ minWidth: "30px", textAlign: "center" }}>
+                          {formData.person}
+                        </span>
+                        <Button
+                          variant="outline-secondary"
+                          size="sm"
+                          style={{ width: "38px", height: "38px", borderRadius: "50%", padding: 0 }}
+                          onClick={() => handlePersonChange(1)}
+                        >
+                          +
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Special Requests */}
+                  <div className="mb-4">
+                    <div
+                      className="text-uppercase small fw-bold text-primary mb-3"
+                      style={{ letterSpacing: "0.06em" }}
+                    >
+                      📝 Custom Requirements
+                    </div>
+
+                    <Form.Group>
+                      <Form.Label className="tv-form-label">Special Requests (Optional)</Form.Label>
                       <Form.Control
                         as="textarea"
                         rows={3}
-                        placeholder="Enter any special requirements"
+                        className="tv-form-control"
+                        placeholder="Dietary preferences, airport pick-up, room preferences, etc."
                         value={formData.request}
                         onChange={(e) => handleChange("request", e)}
                       />
                     </Form.Group>
-                  </Col>
-                </Row>
+                  </div>
 
-                <div className="d-flex flex-wrap gap-3 mt-4">
-                  <Button
-                    type="button"
-                    variant="outline-secondary"
-                    onClick={() => navigate(-1)}
-                    disabled={submitting}
-                  >
-                    Back to Trips
-                  </Button>
+                  {/* Trust badges */}
+                  <div className="d-flex flex-wrap gap-3 p-3 mb-4 rounded-3 small text-muted" style={{ background: "#f8f9fa" }}>
+                    <div className="d-flex align-items-center gap-1">
+                      <span>🔒</span> 256-bit Secure
+                    </div>
+                    <div className="d-flex align-items-center gap-1">
+                      <span>⚡</span> Instant Confirmation
+                    </div>
+                    <div className="d-flex align-items-center gap-1">
+                      <span>🔄</span> Free Date Change
+                    </div>
+                  </div>
 
-                  <Button variant="primary" type="submit" disabled={submitting}>
-                    {submitting ? (
-                      <>
-                        <Spinner
-                          size="sm"
-                          animation="border"
-                          className="me-2"
-                        />
-                        Booking...
-                      </>
-                    ) : (
-                      "Confirm Booking"
-                    )}
-                  </Button>
-                </div>
-              </Form>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+                  {/* Submit Actions */}
+                  <div className="d-flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      variant="outline-secondary"
+                      className="rounded-pill px-4 fw-semibold"
+                      onClick={() => navigate(-1)}
+                      disabled={submitting}
+                    >
+                      ← Back
+                    </Button>
+
+                    <Button
+                      type="submit"
+                      className="tv-btn-primary flex-grow-1"
+                      style={{ padding: "0.75rem 2rem", fontSize: "1.05rem" }}
+                      disabled={submitting}
+                    >
+                      {submitting ? (
+                        <>
+                          <Spinner
+                            size="sm"
+                            animation="border"
+                            className="me-2"
+                          />
+                          Confirming Reservation...
+                        </>
+                      ) : (
+                        `Confirm Booking • ₹${Number(formData.total || 0).toLocaleString("en-IN")}`
+                      )}
+                    </Button>
+                  </div>
+                </Form>
+              </div>
+            </div>
+          </Col>
+        </Row>
+      </Container>
+    </div>
   );
 };
 

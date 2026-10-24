@@ -2,27 +2,27 @@ import { Spinner, Container } from "react-bootstrap";
 
 const Loading = () => {
   return (
-    <Container
-      fluid
-      className="d-flex flex-column justify-content-center align-items-center"
-      style={{
-        minHeight: "100vh",
-        backgroundColor: "#f8f9fa",
-      }}
-    >
+    <div className="tv-loading-screen text-center text-white p-4">
+      <div className="tv-loading-brand mb-2">TripVerse</div>
+      <p className="text-white-50 small text-uppercase fw-semibold mb-4" style={{ letterSpacing: "0.2em" }}>
+        Curating Your Next Journey
+      </p>
+
       <Spinner
         animation="border"
-        variant="primary"
+        role="status"
         style={{
-          width: "50px",
-          height: "50px",
+          width: "3.5rem",
+          height: "3.5rem",
+          color: "#93c5fd",
+          borderWidth: "3.5px",
         }}
       />
 
-      <h5 className="mt-3 text-dark">Loading...</h5>
-
-      <p className="text-muted mb-0">Please wait while we load the page</p>
-    </Container>
+      <div className="mt-4 text-white-50 small">
+        Preparing destinations & experiences...
+      </div>
+    </div>
   );
 };
 
